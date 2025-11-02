@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cards & Groups</title>
+  <style>
+    :root { --bg:#f7f7f8; --ink:#1f2937; --muted:#6b7280; --border:#e5e7eb; --panel:#ffffff; }
+    #cardCount, #groupCount { display: none; }
+    body { margin:0; font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+    .wrap { max-width:1200px; margin:0 auto; padding:24px; }
+    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    h1 { font-size:22px; margin:0; }
+    .grid { display:grid; grid-template-columns: 1fr 3fr; gap:24px; }
+    /* Sidebar */
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .row { display:flex; gap:8px; }
+    input, textarea { width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:12px; padding:10px; font:inherit; }
+    textarea { resize:vertical; min-height:160px; }
+    .btn { border:1px solid var(--border); background:#fff; padding:10px 12px; border-radius:12px; cursor:pointer; }
+    .btn.primary { background:#111827; color:#fff; border-color:#111827; }
+    .muted { color:var(--muted); font-size:12px; }
+    .vspace { height:1px; background:var(--border); margin:14px 0; }
+
+    /* Unassigned area */
+    .dropzone { background:#fafafa; border:2px dashed var(--border); border-radius:16px; padding:12px; min-height:120px; }
+
+    /* Board */
+    .board { min-height:75vh; display:grid; gap:16px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+    .group { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:12px; display:flex; flex-direction:column; }
+    .group-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .group-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .group-body { background:#fafafa; border:2px dashed var(--border); border-radius:12px; padding:12px; min-height:140px; }
+
+    /* Card */
+    .card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:8px 10px; margin:6px 0; display:flex; align-items:center; justify-content:space-between; cursor:grab; box-shadow:0 1px 1px rgba(0,0,0,.05); }
+    .card.grabbing { cursor:grabbing; }
+    .card-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .icon-btn { background:none; border:none; cursor:pointer; color:#9ca3af; font-size:18px; line-height:1; padding:2px 6px; }
+    .icon-btn:hover { color:#ef4444; }
+
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Cards & Groups</h1>
+      <div class="row">
+        <button id="importBtn" class="btn">Import cards</button>
+        <button id="clearBtn" class="btn">Clear all</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Sidebar -->
+      <section>
+        <div class="panel">
+          <h3>Create Card</h3>
+          <div class="row">
+            <input id="cardInput" maxlength="29" placeholder="Write card text" />
+            <button id="addCardBtn" class="btn primary">Add</button>
+          </div>
+          <div class="muted" id="cardCount">0/29 characters</div>
+
+          <div class="vspace"></div>
+
+          <h3>Create Group</h3>
+          <div class="row">
+            <input id="groupInput" maxlength="29" placeholder="Write group title" />
+            <button id="addGroupBtn" class="btn primary">Add</button>
+          </div>
+          <div class="muted" id="groupCount">0/29 characters</div>
+
+          <div class="vspace"></div>
+
+          <h3>Unassigned</h3>
+          <div id="unassigned" class="dropzone" data-drop="unassigned"></div>
+        </div>
+      </section>
+
+      <!-- Board -->
+      <section class="board" id="board"></section>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <dialog id="importDialog">
+    <form method="dialog" class="panel" style="max-width:640px; width:90vw;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <h3>Import cards</h3>
+        <button class="icon-btn" value="cancel" title="Close">×</button>
+      </div>
+      <textarea id="importText" placeholder="One card per line. Lines ≥ 30 chars are skipped."></textarea>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn primary" id="confirmImport" value="default">Create cards</button>
+      </div>
+      <div class="muted" id="importReport" style="margin-top:8px;"></div>
+    </form>
+  </dialog>
+
+  <script>
+    // --- State & persistence ---
+    const MAX_LEN = 29; // strictly less than 30
+    const LS = {
+      cards: 'cg_cards_vanilla',
+      groups: 'cg_groups_vanilla'
+    };
+    let cards = load(LS.cards, []); // {id, text, groupId|null}
+    let groups = load(LS.groups, []); // {id, title}
+
+    function saveAll(){ save(LS.cards, cards); save(LS.groups, groups); }
+    function save(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+    function load(key, fallback){ try{ const x = localStorage.getItem(key); return x? JSON.parse(x) : fallback; }catch(e){ return fallback; } }
+    function uid(){ return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); }
+
+    // --- Elements ---
+    const cardInput = document.getElementById('cardInput');
+    const addCardBtn = document.getElementById('addCardBtn');
+    const cardCount = document.getElementById('cardCount');
+
+    const groupInput = document.getElementById('groupInput');
+    const addGroupBtn = document.getElementById('addGroupBtn');
+    const groupCount = document.getElementById('groupCount');
+
+    const board = document.getElementById('board');
+    const unassigned = document.getElementById('unassigned');
+
+    const importBtn = document.getElementById('importBtn');
+    const importDialog = document.getElementById('importDialog');
+    const importText = document.getElementById('importText');
+    const confirmImport = document.getElementById('confirmImport');
+    const importReport = document.getElementById('importReport');
+
+    const clearBtn = document.getElementById('clearBtn');
+
+    // --- Helpers ---
+    function clampText(txt){ return (txt||'').trim(); }
+    function tooLong(txt){ return txt.length > MAX_LEN; }
+
+    // --- Rendering ---
+    function render(){
+      // sidebar counts
+      cardCount.textContent = `${cardInput.value.length}/${MAX_LEN} characters`;
+      groupCount.textContent = `${groupInput.value.length}/${MAX_LEN} characters`;
+
+      // board groups
+      board.innerHTML = '';
+      groups.forEach(g => {
+        const el = document.createElement('div');
+        el.className = 'group';
+        el.innerHTML = `
+          <div class="group-head">
+            <div class="group-title" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</div>
+            <button class="icon-btn" title="Delete group" data-act="del-group" data-id="${g.id}">×</button>
+          </div>
+          <div class="group-body" data-drop="group" data-id="${g.id}"></div>
+        `;
+        board.appendChild(el);
+      });
+
+      // cards (place in correct container)
+      // first clear dropzones
+      document.querySelectorAll('[data-drop="group"]').forEach(z => z.innerHTML = '');
+      unassigned.innerHTML = '';
+
+      cards.forEach(c => {
+        const cardEl = createCardEl(c);
+        const target = c.groupId ? document.querySelector(`.group-body[data-id="${CSS.escape(c.groupId)}"]`) : unassigned;
+        (target || unassigned).appendChild(cardEl);
+      });
+
+      // wire events after rendering
+      hookGroupEvents();
+    }
+
+    function createCardEl(card){
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.draggable = true;
+      el.dataset.id = card.id;
+      el.innerHTML = `
+        <span class="card-text" title="${escapeHtml(card.text)}">${escapeHtml(card.text)}</span>
+        <button class="icon-btn" title="Delete card" data-act="del-card" data-id="${card.id}">×</button>
+      `;
+      el.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', card.id);
+        el.classList.add('grabbing');
+      });
+      el.addEventListener('dragend', () => el.classList.remove('grabbing'));
+      el.addEventListener('click', e => {
+        const btn = e.target.closest('[data-act="del-card"]');
+        if(btn){
+          cards = cards.filter(x => x.id !== card.id);
+          saveAll();
+          render();
+        }
+      });
+      return el;
+    }
+
+    function hookGroupEvents(){
+      const drops = document.querySelectorAll('[data-drop]');
+      drops.forEach(zone => {
+        zone.addEventListener('dragover', e => { e.preventDefault(); });
+        zone.addEventListener('drop', e => {
+          e.preventDefault();
+          const cardId = e.dataTransfer.getData('text/plain');
+          if(!cardId) return;
+          const zoneType = zone.dataset.drop;
+          const gid = zoneType === 'group' ? zone.dataset.id : null;
+          cards = cards.map(c => c.id === cardId ? { ...c, groupId: gid } : c);
+          saveAll();
+          render();
+        });
+      });
+
+      // delete group buttons
+      document.querySelectorAll('[data-act="del-group"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          groups = groups.filter(g => g.id !== id);
+          cards = cards.map(c => c.groupId === id ? { ...c, groupId: null } : c);
+          saveAll();
+          render();
+        });
+      });
+    }
+
+    function escapeHtml(s){
+      return (s+"")
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // --- Event wiring ---
+    addCardBtn.addEventListener('click', () => {
+      const t = clampText(cardInput.value);
+      if(!t) return alert('Card text is required.');
+      if(tooLong(t)) return alert(`Cards must be < 30 chars (got ${t.length}).`);
+      cards.push({ id: uid(), text: t, groupId: null });
+      cardInput.value = '';
+      saveAll();
+      render();
+    });
+
+    addGroupBtn.addEventListener('click', () => {
+      const t = clampText(groupInput.value);
+      if(!t) return alert('Group title is required.');
+      if(tooLong(t)) return alert(`Group titles must be < 30 chars (got ${t.length}).`);
+      groups.push({ id: uid(), title: t });
+      groupInput.value = '';
+      saveAll();
+      render();
+    });
+
+    cardInput.addEventListener('input', () => render());
+    groupInput.addEventListener('input', () => render());
+
+    clearBtn.addEventListener('click', () => {
+      if(confirm('Clear all saved data?')){
+        localStorage.removeItem(LS.cards);
+        localStorage.removeItem(LS.groups);
+        cards = []; groups = [];
+        render();
+      }
+    });
+
+    // Import dialog
+    importBtn.addEventListener('click', () => {
+      importReport.textContent = '';
+      importText.value = '';
+      importDialog.showModal();
+    });
+
+    confirmImport.addEventListener('click', (e) => {
+      // Let dialog close after this handler
+      e.preventDefault();
+      const lines = importText.value.split(/\r?\n/).map(s => s.trim());
+      let added = 0, skippedEmpty = 0, skippedLong = 0;
+      for(const line of lines){
+        if(!line){ skippedEmpty++; continue; }
+        if(tooLong(line)){ skippedLong++; continue; }
+        cards.push({ id: uid(), text: line, groupId: null });
+        added++;
+      }
+      saveAll();
+      render();
+      importReport.textContent = `Added: ${added}` + (skippedEmpty? `, Skipped empty: ${skippedEmpty}` : '') + (skippedLong? `, Skipped too long: ${skippedLong}` : '');
+      setTimeout(() => importDialog.close(), 500);
+    });
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
