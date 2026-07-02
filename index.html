@@ -1,301 +1,674 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cards & Groups</title>
-  <style>
-    :root { --bg:#f7f7f8; --ink:#1f2937; --muted:#6b7280; --border:#e5e7eb; --panel:#ffffff; }
-    #cardCount, #groupCount { display: none; }
-    body { margin:0; font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--ink); background:var(--bg); }
-    .wrap { max-width:1200px; margin:0 auto; padding:24px; }
-    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-    h1 { font-size:22px; margin:0; }
-    .grid { display:grid; grid-template-columns: 1fr 3fr; gap:24px; }
-    /* Sidebar */
-    .panel { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-    .row { display:flex; gap:8px; }
-    input, textarea { width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:12px; padding:10px; font:inherit; }
-    textarea { resize:vertical; min-height:160px; }
-    .btn { border:1px solid var(--border); background:#fff; padding:10px 12px; border-radius:12px; cursor:pointer; }
-    .btn.primary { background:#111827; color:#fff; border-color:#111827; }
-    .muted { color:var(--muted); font-size:12px; }
-    .vspace { height:1px; background:var(--border); margin:14px 0; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cards &amp; Groups</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #14161c;
+    --panel: #1e222b;
+    --panel-raised: #262b36;
+    --ink: #e6e9f0;
+    --muted: #8b93a7;
+    --border: #333a48;
+    --accent: #5c7cfa;
+    --accent-ink: #ffffff;
+    --danger: #ff6b6b;
+    --danger-bg: rgba(255, 107, 107, .12);
+    --drop: #5c7cfa;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px rgba(0, 0, 0, .2);
+  }
 
-    /* Unassigned area */
-    .dropzone { background:#fafafa; border:2px dashed var(--border); border-radius:16px; padding:12px; min-height:120px; }
+  * { box-sizing: border-box; }
 
-    /* Board */
-    .board { min-height:75vh; display:grid; gap:16px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
-    .group { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:12px; display:flex; flex-direction:column; }
-    .group-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-    .group-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .group-body { background:#fafafa; border:2px dashed var(--border); border-radius:12px; padding:12px; min-height:140px; }
+  body {
+    margin: 0;
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+  }
 
-    /* Card */
-    .card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:8px 10px; margin:6px 0; display:flex; align-items:center; justify-content:space-between; cursor:grab; box-shadow:0 1px 1px rgba(0,0,0,.05); }
-    .card.grabbing { cursor:grabbing; }
-    .card-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .icon-btn { background:none; border:none; cursor:pointer; color:#9ca3af; font-size:18px; line-height:1; padding:2px 6px; }
-    .icon-btn:hover { color:#ef4444; }
+  .app {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+  }
 
-    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  </style>
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+
+  .actions { display: flex; gap: 8px; }
+
+  /* ---------- Controls ---------- */
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font: inherit;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: var(--panel-raised); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
+
+  input[type="text"], textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+  }
+  input[type="text"]:focus, textarea:focus {
+    outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    border-color: var(--accent);
+  }
+
+  /* ---------- Composer bar ---------- */
+  .composer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .composer form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    box-shadow: var(--shadow);
+  }
+  .composer label {
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    color: var(--muted);
+  }
+
+  /* ---------- Board ---------- */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+
+  .group {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow .12s, opacity .12s;
+  }
+  .group.dragging { opacity: .4; }
+  .group.drop-before { box-shadow: -3px 0 0 var(--drop), var(--shadow); }
+  .group.drop-after  { box-shadow:  3px 0 0 var(--drop), var(--shadow); }
+
+  .group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: grab;
+    user-select: none;
+  }
+  .group-head:active { cursor: grabbing; }
+  .group-title {
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .group-count {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--bg);
+    border-radius: 99px;
+    padding: 2px 8px;
+  }
+
+  .card-list {
+    padding: 10px;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .card-list.drag-over {
+    background: color-mix(in srgb, var(--drop) 6%, transparent);
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .card-list:empty::after {
+    content: "Drop cards here";
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 24px 0;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+  }
+
+  /* ---------- Unassigned tray ---------- */
+  .tray {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .tray-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+  }
+  .tray .card-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .tray .card { width: auto; max-width: 260px; }
+  .tray .card-list:empty::after { flex: 1; }
+
+  /* ---------- Card ---------- */
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 6px 8px 12px;
+    cursor: grab;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    transition: box-shadow .12s, opacity .12s;
+    position: relative;
+  }
+  .card:active { cursor: grabbing; }
+  .card.dragging { opacity: .4; }
+  .card.drop-before::before,
+  .card.drop-after::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--drop);
+  }
+  .card.drop-before::before { top: -6px; }
+  .card.drop-after::after { bottom: -6px; }
+  .tray .card.drop-before::before,
+  .tray .card.drop-after::after {
+    top: 0; bottom: 0;
+    height: auto;
+    width: 3px;
+  }
+  .tray .card.drop-before::before { left: -6px; right: auto; }
+  .tray .card.drop-after::after { right: -6px; left: auto; }
+
+  .card-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .icon-btn {
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .icon-btn:hover { color: var(--danger); background: var(--danger-bg); }
+
+  .empty-board {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--muted);
+    padding: 48px 0;
+  }
+
+  /* ---------- Dialog ---------- */
+  dialog {
+    border: none;
+    border-radius: var(--radius);
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+    padding: 20px;
+    width: min(560px, 92vw);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .55); }
+  dialog h2 { margin: 0 0 12px; font-size: 16px; }
+  dialog textarea { min-height: 160px; resize: vertical; }
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .report { color: var(--muted); font-size: 12px; margin-top: 8px; min-height: 1em; }
+
+  @media (max-width: 720px) {
+    .composer { grid-template-columns: 1fr; }
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Cards & Groups</h1>
-      <div class="row">
-        <button id="importBtn" class="btn">Import cards</button>
-        <button id="clearBtn" class="btn">Clear all</button>
-      </div>
-    </header>
-
-    <div class="grid">
-      <!-- Sidebar -->
-      <section>
-        <div class="panel">
-          <h3>Create Card</h3>
-          <div class="row">
-            <input id="cardInput" maxlength="29" placeholder="Write card text" />
-            <button id="addCardBtn" class="btn primary">Add</button>
-          </div>
-          <div class="muted" id="cardCount">0/29 characters</div>
-
-          <div class="vspace"></div>
-
-          <h3>Create Group</h3>
-          <div class="row">
-            <input id="groupInput" maxlength="29" placeholder="Write group title" />
-            <button id="addGroupBtn" class="btn primary">Add</button>
-          </div>
-          <div class="muted" id="groupCount">0/29 characters</div>
-
-          <div class="vspace"></div>
-
-          <h3>Unassigned</h3>
-          <div id="unassigned" class="dropzone" data-drop="unassigned"></div>
-        </div>
-      </section>
-
-      <!-- Board -->
-      <section class="board" id="board"></section>
+<div class="app">
+  <header>
+    <h1>Cards &amp; Groups</h1>
+    <div class="actions">
+      <button class="btn" id="importBtn" type="button">Import cards</button>
+      <button class="btn danger" id="clearBtn" type="button">Clear all</button>
     </div>
+  </header>
+
+  <div class="composer">
+    <form id="cardForm">
+      <label for="cardInput">New card</label>
+      <input type="text" id="cardInput" maxlength="29" placeholder="Card text (max 29 chars)" autocomplete="off" />
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+    <form id="groupForm">
+      <label for="groupInput">New group</label>
+      <input type="text" id="groupInput" maxlength="29" placeholder="Group title (max 29 chars)" autocomplete="off" />
+      <button class="btn primary" type="submit">Add</button>
+    </form>
   </div>
 
-  <!-- Import Modal -->
-  <dialog id="importDialog">
-    <form method="dialog" class="panel" style="max-width:640px; width:90vw;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-        <h3>Import cards</h3>
-        <button class="icon-btn" value="cancel" title="Close">×</button>
-      </div>
-      <textarea id="importText" placeholder="One card per line. Lines ≥ 30 chars are skipped."></textarea>
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
-        <button class="btn" value="cancel">Cancel</button>
-        <button class="btn primary" id="confirmImport" value="default">Create cards</button>
-      </div>
-      <div class="muted" id="importReport" style="margin-top:8px;"></div>
-    </form>
-  </dialog>
+  <section class="tray">
+    <div class="tray-head">Unassigned</div>
+    <div class="card-list" data-container="unassigned"></div>
+  </section>
 
-  <script>
-    // --- State & persistence ---
-    const MAX_LEN = 29; // strictly less than 30
-    const LS = {
-      cards: 'cg_cards_vanilla',
-      groups: 'cg_groups_vanilla'
-    };
-    let cards = load(LS.cards, []); // {id, text, groupId|null}
-    let groups = load(LS.groups, []); // {id, title}
+  <main class="board" id="board"></main>
+</div>
 
-    function saveAll(){ save(LS.cards, cards); save(LS.groups, groups); }
-    function save(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
-    function load(key, fallback){ try{ const x = localStorage.getItem(key); return x? JSON.parse(x) : fallback; }catch(e){ return fallback; } }
-    function uid(){ return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7); }
+<dialog id="importDialog">
+  <h2>Import cards</h2>
+  <textarea id="importText" placeholder="One card per line. Lines longer than 29 characters are skipped."></textarea>
+  <div class="dialog-actions">
+    <button class="btn" id="importCancel" type="button">Cancel</button>
+    <button class="btn primary" id="importConfirm" type="button">Create cards</button>
+  </div>
+  <div class="report" id="importReport"></div>
+</dialog>
 
-    // --- Elements ---
-    const cardInput = document.getElementById('cardInput');
-    const addCardBtn = document.getElementById('addCardBtn');
-    const cardCount = document.getElementById('cardCount');
+<script>
+"use strict";
 
-    const groupInput = document.getElementById('groupInput');
-    const addGroupBtn = document.getElementById('addGroupBtn');
-    const groupCount = document.getElementById('groupCount');
+/* ================= Store =================
+   groups: [{ id, title }]            — array order = board order
+   cards:  [{ id, text, groupId }]    — array order = order inside its container
+                                        groupId is null for the unassigned tray */
+const MAX_LEN = 29;
+const STORAGE_KEY = "cards-and-groups/v2";
 
-    const board = document.getElementById('board');
-    const unassigned = document.getElementById('unassigned');
+const store = {
+  groups: [],
+  cards: [],
 
-    const importBtn = document.getElementById('importBtn');
-    const importDialog = document.getElementById('importDialog');
-    const importText = document.getElementById('importText');
-    const confirmImport = document.getElementById('confirmImport');
-    const importReport = document.getElementById('importReport');
+  load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.groups)) this.groups = data.groups;
+      if (Array.isArray(data.cards)) this.cards = data.cards;
+    } catch { /* corrupted storage — start fresh */ }
+  },
 
-    const clearBtn = document.getElementById('clearBtn');
+  save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ groups: this.groups, cards: this.cards }));
+    } catch { /* storage unavailable — app still works in memory */ }
+  },
 
-    // --- Helpers ---
-    function clampText(txt){ return (txt||'').trim(); }
-    function tooLong(txt){ return txt.length > MAX_LEN; }
+  addCard(text) {
+    this.cards.push({ id: uid(), text, groupId: null });
+  },
 
-    // --- Rendering ---
-    function render(){
-      // sidebar counts
-      cardCount.textContent = `${cardInput.value.length}/${MAX_LEN} characters`;
-      groupCount.textContent = `${groupInput.value.length}/${MAX_LEN} characters`;
+  addGroup(title) {
+    this.groups.push({ id: uid(), title });
+  },
 
-      // board groups
-      board.innerHTML = '';
-      groups.forEach(g => {
-        const el = document.createElement('div');
-        el.className = 'group';
-        el.innerHTML = `
-          <div class="group-head">
-            <div class="group-title" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</div>
-            <button class="icon-btn" title="Delete group" data-act="del-group" data-id="${g.id}">×</button>
-          </div>
-          <div class="group-body" data-drop="group" data-id="${g.id}"></div>
-        `;
-        board.appendChild(el);
-      });
+  deleteCard(id) {
+    this.cards = this.cards.filter(c => c.id !== id);
+  },
 
-      // cards (place in correct container)
-      // first clear dropzones
-      document.querySelectorAll('[data-drop="group"]').forEach(z => z.innerHTML = '');
-      unassigned.innerHTML = '';
+  deleteGroup(id) {
+    this.groups = this.groups.filter(g => g.id !== id);
+    // orphaned cards return to the tray
+    for (const c of this.cards) if (c.groupId === id) c.groupId = null;
+  },
 
-      cards.forEach(c => {
-        const cardEl = createCardEl(c);
-        const target = c.groupId ? document.querySelector(`.group-body[data-id="${CSS.escape(c.groupId)}"]`) : unassigned;
-        (target || unassigned).appendChild(cardEl);
-      });
-
-      // wire events after rendering
-      hookGroupEvents();
+  /* Move a card into `groupId` (null = tray), placed relative to `refCardId`.
+     refCardId null = append at the end of that container. */
+  moveCard(cardId, groupId, refCardId, before) {
+    const card = this.cards.find(c => c.id === cardId);
+    if (!card || cardId === refCardId) return;
+    this.cards = this.cards.filter(c => c.id !== cardId);
+    card.groupId = groupId;
+    let index = this.cards.length;
+    if (refCardId != null) {
+      const refIndex = this.cards.findIndex(c => c.id === refCardId);
+      if (refIndex !== -1) index = before ? refIndex : refIndex + 1;
     }
+    this.cards.splice(index, 0, card);
+  },
 
-    function createCardEl(card){
-      const el = document.createElement('div');
-      el.className = 'card';
-      el.draggable = true;
-      el.dataset.id = card.id;
-      el.innerHTML = `
-        <span class="card-text" title="${escapeHtml(card.text)}">${escapeHtml(card.text)}</span>
-        <button class="icon-btn" title="Delete card" data-act="del-card" data-id="${card.id}">×</button>
-      `;
-      el.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('text/plain', card.id);
-        el.classList.add('grabbing');
-      });
-      el.addEventListener('dragend', () => el.classList.remove('grabbing'));
-      el.addEventListener('click', e => {
-        const btn = e.target.closest('[data-act="del-card"]');
-        if(btn){
-          cards = cards.filter(x => x.id !== card.id);
-          saveAll();
-          render();
-        }
-      });
-      return el;
+  /* Reorder a group next to `refGroupId` on the board. */
+  moveGroup(groupId, refGroupId, before) {
+    if (groupId === refGroupId) return;
+    const group = this.groups.find(g => g.id === groupId);
+    if (!group) return;
+    this.groups = this.groups.filter(g => g.id !== groupId);
+    let index = this.groups.length;
+    if (refGroupId != null) {
+      const refIndex = this.groups.findIndex(g => g.id === refGroupId);
+      if (refIndex !== -1) index = before ? refIndex : refIndex + 1;
     }
+    this.groups.splice(index, 0, group);
+  },
 
-    function hookGroupEvents(){
-      const drops = document.querySelectorAll('[data-drop]');
-      drops.forEach(zone => {
-        zone.addEventListener('dragover', e => { e.preventDefault(); });
-        zone.addEventListener('drop', e => {
-          e.preventDefault();
-          const cardId = e.dataTransfer.getData('text/plain');
-          if(!cardId) return;
-          const zoneType = zone.dataset.drop;
-          const gid = zoneType === 'group' ? zone.dataset.id : null;
-          cards = cards.map(c => c.id === cardId ? { ...c, groupId: gid } : c);
-          saveAll();
-          render();
-        });
-      });
+  cardsIn(groupId) {
+    return this.cards.filter(c => c.groupId === groupId);
+  },
 
-      // delete group buttons
-      document.querySelectorAll('[data-act="del-group"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.dataset.id;
-          groups = groups.filter(g => g.id !== id);
-          cards = cards.map(c => c.groupId === id ? { ...c, groupId: null } : c);
-          saveAll();
-          render();
-        });
-      });
+  clear() {
+    this.groups = [];
+    this.cards = [];
+  },
+};
+
+function uid() {
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function commit() {
+  store.save();
+  render();
+}
+
+/* ================= Rendering ================= */
+const board = document.getElementById("board");
+const tray = document.querySelector('[data-container="unassigned"]');
+
+function render() {
+  tray.replaceChildren(...store.cardsIn(null).map(cardEl));
+
+  if (store.groups.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-board";
+    empty.textContent = "No groups yet — create one above, then drag cards into it.";
+    board.replaceChildren(empty);
+    return;
+  }
+  board.replaceChildren(...store.groups.map(groupEl));
+}
+
+function cardEl(card) {
+  const el = document.createElement("div");
+  el.className = "card";
+  el.draggable = true;
+  el.dataset.cardId = card.id;
+
+  const text = document.createElement("span");
+  text.className = "card-text";
+  text.textContent = card.text;
+  text.title = card.text;
+
+  const del = document.createElement("button");
+  del.className = "icon-btn";
+  del.type = "button";
+  del.title = "Delete card";
+  del.textContent = "×";
+  del.dataset.action = "delete-card";
+
+  el.append(text, del);
+  return el;
+}
+
+function groupEl(group) {
+  const el = document.createElement("section");
+  el.className = "group";
+  el.dataset.groupId = group.id;
+
+  const head = document.createElement("div");
+  head.className = "group-head";
+  head.draggable = true;
+
+  const title = document.createElement("span");
+  title.className = "group-title";
+  title.textContent = group.title;
+  title.title = group.title;
+
+  const cardsInGroup = store.cardsIn(group.id);
+
+  const count = document.createElement("span");
+  count.className = "group-count";
+  count.textContent = cardsInGroup.length;
+
+  const del = document.createElement("button");
+  del.className = "icon-btn";
+  del.type = "button";
+  del.title = "Delete group (cards go back to Unassigned)";
+  del.textContent = "×";
+  del.dataset.action = "delete-group";
+
+  head.append(title, count, del);
+
+  const list = document.createElement("div");
+  list.className = "card-list";
+  list.dataset.container = group.id;
+  list.append(...cardsInGroup.map(cardEl));
+
+  el.append(head, list);
+  return el;
+}
+
+/* ================= Drag & drop =================
+   dataTransfer data is unreadable during dragover, so the dragged
+   item is tracked in `drag` for the duration of the gesture. */
+let drag = null; // { type: "card"|"group", id }
+
+document.addEventListener("dragstart", e => {
+  const cardNode = e.target.closest?.(".card");
+  const headNode = e.target.closest?.(".group-head");
+  if (cardNode) {
+    drag = { type: "card", id: cardNode.dataset.cardId };
+    cardNode.classList.add("dragging");
+  } else if (headNode) {
+    const groupNode = headNode.closest(".group");
+    drag = { type: "group", id: groupNode.dataset.groupId };
+    groupNode.classList.add("dragging");
+  } else {
+    return;
+  }
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", drag.id);
+});
+
+document.addEventListener("dragend", () => {
+  drag = null;
+  clearDropHints();
+});
+
+document.addEventListener("dragover", e => {
+  if (!drag) return;
+  clearDropHints();
+
+  if (drag.type === "card") {
+    const list = e.target.closest?.(".card-list");
+    if (!list) return;
+    e.preventDefault();
+    const target = cardDropTarget(e, list);
+    if (target.ref) {
+      target.ref.classList.add(target.before ? "drop-before" : "drop-after");
+    } else {
+      list.classList.add("drag-over");
     }
+  } else {
+    const groupNode = e.target.closest?.(".group");
+    if (!groupNode || groupNode.dataset.groupId === drag.id) return;
+    e.preventDefault();
+    groupNode.classList.add(dropsBefore(e, groupNode) ? "drop-before" : "drop-after");
+  }
+});
 
-    function escapeHtml(s){
-      return (s+"")
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
+document.addEventListener("drop", e => {
+  if (!drag) return;
 
-    // --- Event wiring ---
-    addCardBtn.addEventListener('click', () => {
-      const t = clampText(cardInput.value);
-      if(!t) return alert('Card text is required.');
-      if(tooLong(t)) return alert(`Cards must be < 30 chars (got ${t.length}).`);
-      cards.push({ id: uid(), text: t, groupId: null });
-      cardInput.value = '';
-      saveAll();
-      render();
-    });
+  if (drag.type === "card") {
+    const list = e.target.closest?.(".card-list");
+    if (!list) return;
+    e.preventDefault();
+    const container = list.dataset.container === "unassigned" ? null : list.dataset.container;
+    const target = cardDropTarget(e, list);
+    store.moveCard(drag.id, container, target.ref?.dataset.cardId ?? null, target.before);
+  } else {
+    const groupNode = e.target.closest?.(".group");
+    if (!groupNode) return;
+    e.preventDefault();
+    store.moveGroup(drag.id, groupNode.dataset.groupId, dropsBefore(e, groupNode));
+  }
 
-    addGroupBtn.addEventListener('click', () => {
-      const t = clampText(groupInput.value);
-      if(!t) return alert('Group title is required.');
-      if(tooLong(t)) return alert(`Group titles must be < 30 chars (got ${t.length}).`);
-      groups.push({ id: uid(), title: t });
-      groupInput.value = '';
-      saveAll();
-      render();
-    });
+  drag = null;
+  commit();
+});
 
-    cardInput.addEventListener('input', () => render());
-    groupInput.addEventListener('input', () => render());
+/* Which card in `list` the pointer is over, and whether the drop
+   lands before or after it. ref null = empty area → append. */
+function cardDropTarget(e, list) {
+  const ref = e.target.closest?.(".card");
+  if (ref && ref.parentElement === list && ref.dataset.cardId !== drag.id) {
+    return { ref, before: dropsBefore(e, ref) };
+  }
+  return { ref: null, before: false };
+}
 
-    clearBtn.addEventListener('click', () => {
-      if(confirm('Clear all saved data?')){
-        localStorage.removeItem(LS.cards);
-        localStorage.removeItem(LS.groups);
-        cards = []; groups = [];
-        render();
-      }
-    });
+/* Before/after by pointer position past the element's midpoint,
+   along whichever axis the layout flows. */
+function dropsBefore(e, el) {
+  const rect = el.getBoundingClientRect();
+  const horizontal = el.closest(".tray") !== null || el.classList.contains("group");
+  return horizontal
+    ? e.clientX < rect.left + rect.width / 2
+    : e.clientY < rect.top + rect.height / 2;
+}
 
-    // Import dialog
-    importBtn.addEventListener('click', () => {
-      importReport.textContent = '';
-      importText.value = '';
-      importDialog.showModal();
-    });
+function clearDropHints() {
+  document.querySelectorAll(".drop-before, .drop-after, .drag-over")
+    .forEach(el => el.classList.remove("drop-before", "drop-after", "drag-over"));
+}
 
-    confirmImport.addEventListener('click', (e) => {
-      // Let dialog close after this handler
-      e.preventDefault();
-      const lines = importText.value.split(/\r?\n/).map(s => s.trim());
-      let added = 0, skippedEmpty = 0, skippedLong = 0;
-      for(const line of lines){
-        if(!line){ skippedEmpty++; continue; }
-        if(tooLong(line)){ skippedLong++; continue; }
-        cards.push({ id: uid(), text: line, groupId: null });
-        added++;
-      }
-      saveAll();
-      render();
-      importReport.textContent = `Added: ${added}` + (skippedEmpty? `, Skipped empty: ${skippedEmpty}` : '') + (skippedLong? `, Skipped too long: ${skippedLong}` : '');
-      setTimeout(() => importDialog.close(), 500);
-    });
+/* ================= Clicks (delete) ================= */
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  if (btn.dataset.action === "delete-card") {
+    store.deleteCard(btn.closest(".card").dataset.cardId);
+    commit();
+  } else if (btn.dataset.action === "delete-group") {
+    store.deleteGroup(btn.closest(".group").dataset.groupId);
+    commit();
+  }
+});
 
-    // Initial render
-    render();
-  </script>
+/* ================= Forms ================= */
+const cardForm = document.getElementById("cardForm");
+const cardInput = document.getElementById("cardInput");
+const groupForm = document.getElementById("groupForm");
+const groupInput = document.getElementById("groupInput");
+
+cardForm.addEventListener("submit", e => {
+  e.preventDefault();
+  const text = cardInput.value.trim();
+  if (!text || text.length > MAX_LEN) return;
+  store.addCard(text);
+  cardInput.value = "";
+  cardInput.focus();
+  commit();
+});
+
+groupForm.addEventListener("submit", e => {
+  e.preventDefault();
+  const title = groupInput.value.trim();
+  if (!title || title.length > MAX_LEN) return;
+  store.addGroup(title);
+  groupInput.value = "";
+  groupInput.focus();
+  commit();
+});
+
+/* ================= Import & clear ================= */
+const importDialog = document.getElementById("importDialog");
+const importText = document.getElementById("importText");
+const importReport = document.getElementById("importReport");
+
+document.getElementById("importBtn").addEventListener("click", () => {
+  importText.value = "";
+  importReport.textContent = "";
+  importDialog.showModal();
+});
+
+document.getElementById("importCancel").addEventListener("click", () => importDialog.close());
+
+document.getElementById("importConfirm").addEventListener("click", () => {
+  const lines = importText.value.split(/\r?\n/).map(s => s.trim());
+  let added = 0, skipped = 0;
+  for (const line of lines) {
+    if (!line) continue;
+    if (line.length > MAX_LEN) { skipped++; continue; }
+    store.addCard(line);
+    added++;
+  }
+  commit();
+  importReport.textContent = `Added ${added} card${added === 1 ? "" : "s"}` + (skipped ? `, skipped ${skipped} too-long line${skipped === 1 ? "" : "s"}` : "") + ".";
+  if (added > 0) setTimeout(() => importDialog.close(), 600);
+});
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  if (!confirm("Delete all cards and groups?")) return;
+  store.clear();
+  localStorage.removeItem(STORAGE_KEY);
+  render();
+});
+
+/* ================= Init ================= */
+store.load();
+render();
+</script>
 </body>
 </html>
